@@ -1,21 +1,13 @@
-import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Lock, User } from 'lucide-react';
+import { Lock } from 'lucide-react';
 
 export default function AdminLogin() {
   const [, setLocation] = useLocation();
 
-  // Login automático para demonstração
-  // TODO: Implementar autenticação real após deploy funcionar
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Por enquanto, aceita qualquer login para demonstração
+  const handleLogin = () => {
     const fakeToken = 'demo-token-' + Date.now();
     const fakeUser = { 
       id: '1', 
@@ -41,23 +33,21 @@ export default function AdminLogin() {
           <CardTitle className="text-2xl font-bold">Painel Administrativo</CardTitle>
           <CardDescription>Flávio Maia Imóveis</CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <Alert className="bg-blue-50 border-blue-200">
-              <AlertDescription className="text-blue-800">
-                <strong>Modo Demonstração:</strong> Clique em "Entrar" para acessar o painel admin.
-                A autenticação será implementada após o deploy funcionar corretamente.
-              </AlertDescription>
-            </Alert>
+        <CardContent className="space-y-4">
+          <Alert className="bg-blue-50 border-blue-200">
+            <AlertDescription className="text-blue-800">
+              <strong>Modo Demonstração:</strong> Clique em "Entrar" para acessar o painel admin.
+              A autenticação será implementada após o deploy funcionar corretamente.
+            </AlertDescription>
+          </Alert>
 
-            <Button type="submit" className="w-full">
-              Entrar no Painel Admin
-            </Button>
+          <Button onClick={handleLogin} className="w-full" size="lg">
+            Entrar no Painel Admin
+          </Button>
 
-            <div className="text-center text-sm text-muted-foreground mt-4">
-              <p>Versão de demonstração</p>
-            </div>
-          </form>
+          <div className="text-center text-sm text-muted-foreground">
+            <p>Versão de demonstração</p>
+          </div>
         </CardContent>
       </Card>
     </div>
