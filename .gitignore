@@ -39,6 +39,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Manus logs (keep folder but ignore log files)
+.manus-logs/*.log
+
 # Runtime data
 pids
 *.pid
