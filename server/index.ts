@@ -379,7 +379,12 @@ async function startServer() {
 
   app.use(express.static(staticPath));
 
-  // Handle client-side routing - serve index.html for all routes
+  // 404 handler para APIs não encontradas
+  app.use('/api', (req, res) => {
+    res.status(404).json({ error: 'API endpoint não encontrado' });
+  });
+
+  // Handle client-side routing - serve index.html for all routes (DEVE SER O ÚLTIMO)
   app.get("*", (_req, res) => {
     res.sendFile(path.join(staticPath, "index.html"));
   });
@@ -389,6 +394,7 @@ async function startServer() {
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
     console.log(`Supabase: ${isSupabaseConfigured() ? '✅ Configurado' : '⚠️  Não configurado (usando mock data)'}`);
+    console.log(`⚠️  NOTA: No Vercel, as APIs usam Serverless Functions (pasta /api)`);
   });
 }
 
