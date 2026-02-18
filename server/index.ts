@@ -65,12 +65,14 @@ async function startServer() {
         .single();
 
       if (error || !user) {
+        console.error('Erro ao buscar usuário:', error);
         return res.status(401).json({ error: 'Credenciais inválidas' });
       }
 
       // Verificar senha
       const validPassword = await bcrypt.compare(password, user.password);
       if (!validPassword) {
+        console.error('Senha inválida para usuário:', username);
         return res.status(401).json({ error: 'Credenciais inválidas' });
       }
 
