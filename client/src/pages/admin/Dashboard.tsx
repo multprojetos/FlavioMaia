@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Home, TrendingUp, DollarSign, Eye, Plus, LogOut } from 'lucide-react';
 import { Property } from '../../../../shared/types';
+import { properties as mockProperties } from '../../../../shared/mockData';
 
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
@@ -13,36 +14,19 @@ export default function AdminDashboard() {
   useEffect(() => {
     const token = localStorage.getItem('admin_token');
     if (!token) {
-      setLocation('/admin/login');
+      window.location.href = '/admin/login';
       return;
     }
 
-    fetchProperties();
+    // Usar dados mockados por enquanto (modo demonstração)
+    setProperties(mockProperties);
+    setLoading(false);
   }, []);
-
-  const fetchProperties = async () => {
-    try {
-      const token = localStorage.getItem('admin_token');
-      const response = await fetch('/api/admin/properties', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) throw new Error('Não autorizado');
-
-      const data = await response.json();
-      setProperties(data);
-    } catch (error) {
-      console.error('Erro ao carregar imóveis:', error);
-      setLocation('/admin/login');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLogout = () => {
     localStorage.removeItem('admin_token');
     localStorage.removeItem('admin_user');
-    setLocation('/admin/login');
+    window.location.href = '/admin/login';
   };
 
   const stats = {

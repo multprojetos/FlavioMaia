@@ -18,7 +18,9 @@ export default function AdminLogin() {
     
     localStorage.setItem('admin_token', fakeToken);
     localStorage.setItem('admin_user', JSON.stringify(fakeUser));
-    setLocation('/admin/dashboard');
+    
+    // Usar window.location para garantir navegação no Vercel
+    window.location.href = '/admin/dashboard';
   };
 
   return (
