@@ -144,6 +144,21 @@ async function startServer() {
     }
   });
 
+  // DEBUG - Gerar hash de senha
+  app.get('/api/debug/hash/:password', async (req, res) => {
+    try {
+      const { password } = req.params;
+      const hash = await bcrypt.hash(password, 10);
+      res.json({
+        password,
+        hash,
+        message: 'Use este hash no SQL: UPDATE users SET password = \'' + hash + '\' WHERE username = \'admin\';'
+      });
+    } catch (error: any) {
+      res.json({ error: error.message });
+    }
+  });
+
   // PROPERTIES - Listar públicos (apenas disponíveis)
   app.get('/api/properties', async (req, res) => {
     try {
