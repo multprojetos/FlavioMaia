@@ -1,7 +1,6 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { createClient } from '@supabase/supabase-js';
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
@@ -9,7 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+module.exports = async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -74,8 +73,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         role: user.role
       }
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erro no login:', error);
-    return res.status(500).json({ error: 'Erro interno do servidor' });
+    return res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
   }
-}
+};
