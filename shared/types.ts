@@ -1,22 +1,25 @@
+export type PropertyType = 'apartment' | 'house' | 'commercial';
+export type PropertyOperation = 'rent' | 'sale';
+export type PropertyStatus = 'available' | 'rented' | 'sold';
+
 export interface Property {
   id: string;
   title: string;
   description: string;
-  type: 'apartment' | 'house' | 'land' | 'commercial';
-  operation: 'rent' | 'sale';
+  type: PropertyType;
+  operation: PropertyOperation;
+  status?: PropertyStatus;
   price: number;
   location: {
     city: string;
     neighborhood: string;
     address: string;
-    lat?: number;
-    lng?: number;
   };
   details: {
     bedrooms: number;
     bathrooms: number;
     garages: number;
-    area: number; // in m²
+    area: number;
     features: string[];
   };
   images: string[];
@@ -25,24 +28,12 @@ export interface Property {
   updatedAt: string;
 }
 
-export interface SearchFilters {
-  type?: 'apartment' | 'house' | 'land' | 'commercial';
-  operation?: 'rent' | 'sale';
-  city?: string;
-  minPrice?: number;
-  maxPrice?: number;
-  minBedrooms?: number;
-  minArea?: number;
-  features?: string[];
-}
-
 export interface Testimonial {
   id: string;
   name: string;
   role: string;
   content: string;
   rating: number;
-  image?: string;
 }
 
 export interface BlogPost {
@@ -50,11 +41,9 @@ export interface BlogPost {
   title: string;
   excerpt: string;
   content: string;
-  image: string;
   author: string;
-  category: string;
   publishedAt: string;
-  slug: string;
+  image: string;
 }
 
 export interface TeamMember {
@@ -65,5 +54,22 @@ export interface TeamMember {
   image: string;
   phone: string;
   email: string;
-  creci?: string;
+  creci: string;
+}
+
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  role: 'admin' | 'editor';
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: User;
 }

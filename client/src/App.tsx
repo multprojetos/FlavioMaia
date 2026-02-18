@@ -7,6 +7,10 @@ import PropertyDetail from "@/pages/PropertyDetail";
 import Contact from "@/pages/Contact";
 import About from "@/pages/About";
 import Services from "@/pages/Services";
+import AdminLogin from "@/pages/admin/Login";
+import AdminDashboard from "@/pages/admin/Dashboard";
+import PropertiesList from "@/pages/admin/PropertiesList";
+import PropertyForm from "@/pages/admin/PropertyForm";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Route, Switch } from "wouter";
@@ -16,23 +20,36 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 
 function Router() {
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <main className="flex-1">
-        <Switch>
-          <Route path={"/"} component={Home} />
-          <Route path={"/imoveis"} component={Properties} />
-          <Route path={"/imovel/:id"} component={PropertyDetail} />
-          <Route path={"/quem-somos"} component={About} />
-          <Route path={"/servicos"} component={Services} />
-          <Route path={"/contato"} component={Contact} />
-          <Route path={"/404"} component={NotFound} />
-          {/* Final fallback route */}
-          <Route component={NotFound} />
-        </Switch>
-      </main>
-      <Footer />
-    </div>
+    <Switch>
+      {/* Admin Routes (no header/footer) */}
+      <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/admin/dashboard" component={AdminDashboard} />
+      <Route path="/admin/imoveis" component={PropertiesList} />
+      <Route path="/admin/imoveis/novo" component={PropertyForm} />
+      <Route path="/admin/imoveis/:id/editar" component={PropertyForm} />
+
+      {/* Public Routes (with header/footer) */}
+      <Route>
+        {() => (
+          <div className="flex flex-col min-h-screen">
+            <Header />
+            <main className="flex-1">
+              <Switch>
+                <Route path="/" component={Home} />
+                <Route path="/imoveis" component={Properties} />
+                <Route path="/imovel/:id" component={PropertyDetail} />
+                <Route path="/quem-somos" component={About} />
+                <Route path="/servicos" component={Services} />
+                <Route path="/contato" component={Contact} />
+                <Route path="/404" component={NotFound} />
+                <Route component={NotFound} />
+              </Switch>
+            </main>
+            <Footer />
+          </div>
+        )}
+      </Route>
+    </Switch>
   );
 }
 
