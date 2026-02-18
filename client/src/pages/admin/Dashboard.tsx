@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useLocation } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Home, TrendingUp, DollarSign, Eye, Plus, LogOut } from 'lucide-react';
@@ -7,7 +6,6 @@ import { Property } from '../../../../shared/types';
 import { properties as mockProperties } from '../../../../shared/mockData';
 
 export default function AdminDashboard() {
-  const [, setLocation] = useLocation();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -57,7 +55,7 @@ export default function AdminDashboard() {
             <p className="text-sm text-muted-foreground">Flávio Maia Imóveis</p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={() => setLocation('/admin/imoveis/novo')} className="gap-2">
+            <Button onClick={() => window.location.href = '/admin/imoveis/novo'} className="gap-2">
               <Plus size={18} />
               Novo Imóvel
             </Button>
@@ -135,7 +133,7 @@ export default function AdminDashboard() {
             <Button
               variant="outline"
               className="h-24 flex flex-col gap-2"
-              onClick={() => setLocation('/admin/imoveis')}
+              onClick={() => window.location.href = '/admin/imoveis'}
             >
               <Home size={24} />
               <span>Gerenciar Imóveis</span>
@@ -143,7 +141,7 @@ export default function AdminDashboard() {
             <Button
               variant="outline"
               className="h-24 flex flex-col gap-2"
-              onClick={() => setLocation('/admin/imoveis/novo')}
+              onClick={() => window.location.href = '/admin/imoveis/novo'}
             >
               <Plus size={24} />
               <span>Adicionar Imóvel</span>
@@ -151,7 +149,7 @@ export default function AdminDashboard() {
             <Button
               variant="outline"
               className="h-24 flex flex-col gap-2"
-              onClick={() => setLocation('/')}
+              onClick={() => window.location.href = '/'}
             >
               <Eye size={24} />
               <span>Ver Site Público</span>
@@ -169,7 +167,7 @@ export default function AdminDashboard() {
               <div className="text-center py-8 text-muted-foreground">
                 <Home size={48} className="mx-auto mb-4 opacity-20" />
                 <p>Nenhum imóvel cadastrado ainda</p>
-                <Button className="mt-4" onClick={() => setLocation('/admin/imoveis/novo')}>
+                <Button className="mt-4" onClick={() => window.location.href = '/admin/imoveis/novo'}>
                   Cadastrar Primeiro Imóvel
                 </Button>
               </div>
@@ -205,7 +203,7 @@ export default function AdminDashboard() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setLocation(`/admin/imoveis/${property.id}/editar`)}
+                      onClick={() => window.location.href = `/admin/imoveis/${property.id}/editar`}
                     >
                       Editar
                     </Button>

@@ -1,12 +1,9 @@
-import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Lock } from 'lucide-react';
 
 export default function AdminLogin() {
-  const [, setLocation] = useLocation();
-
   const handleLogin = () => {
     const fakeToken = 'demo-token-' + Date.now();
     const fakeUser = { 
