@@ -101,6 +101,49 @@ async function startServer() {
     res.json({ user: req.user });
   });
 
+  // DEBUG - Testar conexão Supabase
+  app.get('/api/debug/supabase', async (req, res) => {
+    try {
+      const configured = isSupabaseConfigured();
+      
+      if (!configured) {
+        return res.json({
+          status: 'not_configured',
+          message: 'Supabase não configurado. Usando modo desenvolvimento.',
+          env: {
+            SUPABASE_URL: !!process.env.SUPABASE_URL,
+            SUPABASE_SERVICE_KEY: !!process.env.SUPABASE_SERVICE_KEY,
+          }
+        });
+      }
+
+      // Testar conexão
+      const { data, error } = await supabase
+        .from('users')
+        .select('username')
+        .limit(1);
+
+      if (error) {
+        return res.json({
+          status: 'error',
+          message: 'Erro ao conectar com Supabase',
+          error: error.message,
+        });
+      }
+
+      res.json({
+        status: 'connected',
+        message: 'Supabase conectado com sucesso!',
+        users_found: data?.length || 0,
+      });
+    } catch (error: any) {
+      res.json({
+        status: 'error',
+        message: error.message,
+      });
+    }
+  });
+
   // PROPERTIES - Listar públicos (apenas disponíveis)
   app.get('/api/properties', async (req, res) => {
     try {
