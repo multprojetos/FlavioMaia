@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation, useParams } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Save, Image as ImageIcon, Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Save, Image as ImageIcon, Plus, Trash2, CheckCircle2, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,6 +32,7 @@ export default function PropertyForm() {
 
   const [newFeature, setNewFeature] = useState('');
   const [newImage, setNewImage] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('admin_token');
@@ -160,6 +161,72 @@ export default function PropertyForm() {
         images: [...formData.images!, newImage]
       });
       setNewImage('');
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('property-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('property-images')
+        .getPublicUrl(filePath);
+
+      if (data) {
+        setFormData(prev => ({
+          ...prev,
+          images: [...(prev.images || []), data.publicUrl]
+        }));
+        toast.success('Imagem enviada com sucesso!');
+      }
+    } catch (err) {
+      console.error('Error uploading:', err);
+      toast.error('Erro ao enviar imagem. Verifique se o bucket "property-images" existe e é público.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeImage = async (url: string) => {
+    try {
+      // Extract filename from public URL
+      const fileName = url.split('/').pop();
+      if (!fileName) return;
+
+      // Delete from Supabase Storage
+      const { error } = await supabase.storage
+        .from('property-images')
+        .remove([fileName]);
+
+      if (error) throw error;
+
+      // Remove from state
+      setFormData({
+        ...formData,
+        images: formData.images!.filter(img => img !== url)
+      });
+
+      toast.success('Imagem removida com sucesso');
+    } catch (err) {
+      console.error('Error deleting image:', err);
+      // Even if storage delete fails, remove from state to unblock user
+      setFormData({
+        ...formData,
+        images: formData.images!.filter(img => img !== url)
+      });
+      toast.error('Removido da lista, erro ao apagar do servidor.');
     }
   };
 
@@ -322,20 +389,28 @@ export default function PropertyForm() {
                       <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
                       <button
                         type="button"
-                        onClick={() => setFormData({
-                          ...formData,
-                          images: formData.images!.filter((_, i) => i !== idx)
-                        })}
+                        onClick={() => removeImage(url)}
                         className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <Trash2 size={14} />
                       </button>
                     </div>
                   ))}
-                  <div className="aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer">
-                    <ImageIcon size={24} className="mb-2" />
-                    <span className="text-xs">Upload</span>
-                  </div>
+                  <label className={`aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer ${uploading ? 'opacity-50 cursor-wait' : ''}`}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      disabled={uploading}
+                    />
+                    {uploading ? (
+                      <Loader2 className="animate-spin mb-2" size={24} />
+                    ) : (
+                      <ImageIcon size={24} className="mb-2" />
+                    )}
+                    <span className="text-xs">{uploading ? 'Enviando...' : 'Upload'}</span>
+                  </label>
                 </div>
               </CardContent>
             </Card>

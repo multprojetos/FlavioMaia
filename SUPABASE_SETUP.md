@@ -146,14 +146,32 @@ Se você já tem imóveis no `mockData.ts`, execute o script de migração:
 npm run migrate-data
 ```
 
-## 8. Configurar Storage para Imagens (Opcional)
+## 8. Configurar Storage para Imagens
 
-Se quiser usar o Storage do Supabase em vez do Cloudinary:
+Para permitir o upload de fotos dos imóveis no painel administrativo:
 
-1. Vá em "Storage" no Supabase
-2. Crie um bucket chamado `property-images`
-3. Configure como público
-4. Use as funções de upload do Supabase
+1. Vá em "SQL Editor" no Supabase e execute:
+
+```sql
+-- Criar bucket para imagens
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('property-images', 'property-images', true);
+
+-- Permitir acesso público às imagens
+CREATE POLICY "Public Access" 
+ON storage.objects FOR SELECT 
+USING ( bucket_id = 'property-images' );
+
+-- Permitir que qualquer um (incluindo anon) faça upload e deletar para demonstração
+-- NOTA: Em produção, mude para: auth.role() = 'authenticated'
+CREATE POLICY "Enable Upload for demo" 
+ON storage.objects FOR INSERT 
+WITH CHECK ( bucket_id = 'property-images' );
+
+CREATE POLICY "Enable Delete for demo" 
+ON storage.objects FOR DELETE 
+USING ( bucket_id = 'property-images' );
+```
 
 ## 9. Backup Automático
 
