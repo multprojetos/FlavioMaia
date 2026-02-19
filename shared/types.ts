@@ -73,3 +73,13 @@ export interface LoginResponse {
   token: string;
   user: User;
 }
+
+export interface SearchFilters {
+  type?: PropertyType;
+  operation?: PropertyOperation;
+  city?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  minBedrooms?: number;
+  minArea?: number;
+}

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Property } from '../../../../shared/types';
-import { properties as mockProperties } from '../../../../shared/mockData';
+import { mockProperties } from '../../../../shared/mockData';
 import { Plus, Edit, Home, LogOut } from 'lucide-react';
 
 export default function PropertiesList() {

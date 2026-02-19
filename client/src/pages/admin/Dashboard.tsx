@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Home, TrendingUp, DollarSign, Eye, Plus, LogOut } from 'lucide-react';
 import { Property } from '../../../../shared/types';
-import { properties as mockProperties } from '../../../../shared/mockData';
+import { mockProperties } from '../../../../shared/mockData';
 
 export default function AdminDashboard() {
   const [properties, setProperties] = useState<Property[]>([]);
