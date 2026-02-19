@@ -1,16 +1,77 @@
 import { useParams, useLocation } from 'wouter';
-import { mockProperties } from '../../../shared/mockData';
 import { Button } from '@/components/ui/button';
 import ImageGallery from '@/components/ImageGallery';
-import { MapPin, Bed, Bath, Maximize2, Phone, MessageCircle, Share2, Heart, Car } from 'lucide-react';
-import { useState } from 'react';
+import { MapPin, Bed, Bath, Maximize2, Phone, MessageCircle, Share2, Heart, Car, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { Property } from '../../../shared/types';
+import { toast } from 'sonner';
 
 export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const [isFavorite, setIsFavorite] = useState(false);
+  const [property, setProperty] = useState<Property | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const property = mockProperties.find((p) => p.id === id);
+  useEffect(() => {
+    async function fetchProperty() {
+      if (!id) return;
+      try {
+        const { data, error } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          const mapped: Property = {
+            id: data.id,
+            title: data.title,
+            description: data.description,
+            type: data.type,
+            operation: data.operation,
+            status: data.status,
+            price: Number(data.price),
+            location: {
+              city: data.city,
+              neighborhood: data.neighborhood,
+              address: data.address
+            },
+            details: {
+              bedrooms: data.bedrooms,
+              bathrooms: data.bathrooms,
+              garages: data.garages,
+              area: data.area,
+              features: data.features || []
+            },
+            images: data.images || [],
+            featured: data.featured,
+            createdAt: data.created_at,
+            updatedAt: data.updated_at
+          };
+          setProperty(mapped);
+        }
+      } catch (err) {
+        console.error('Error:', err);
+        toast.error('Imóvel não encontrado');
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProperty();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+        <Loader2 className="animate-spin text-primary mb-4" size={48} />
+        <p className="text-muted-foreground">Carregando detalhes do imóvel...</p>
+      </div>
+    );
+  }
 
   if (!property) {
     return (

@@ -9,8 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { mockProperties } from '../../../../shared/mockData';
 import { Property } from '../../../../shared/types';
+import { supabase } from '@/lib/supabase';
 
 export default function PropertyForm() {
   const [, setLocation] = useLocation();
@@ -36,33 +36,98 @@ export default function PropertyForm() {
   useEffect(() => {
     const token = localStorage.getItem('admin_token');
     if (!token) {
-      window.location.href = '/admin/login';
+      setLocation('/admin/login');
       return;
     }
 
     if (isEditing) {
-      const property = mockProperties.find(p => p.id === id);
-      if (property) {
-        setFormData(property);
-      } else {
-        toast.error('Imóvel não encontrado');
-        setLocation('/admin/imoveis');
+      const fetchProperty = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('properties')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+          if (error) throw error;
+          if (data) {
+            setFormData({
+              id: data.id,
+              title: data.title,
+              description: data.description,
+              type: data.type,
+              operation: data.operation,
+              status: data.status,
+              price: Number(data.price),
+              location: {
+                city: data.city,
+                neighborhood: data.neighborhood,
+                address: data.address
+              },
+              details: {
+                bedrooms: data.bedrooms,
+                bathrooms: data.bathrooms,
+                garages: data.garages,
+                area: data.area,
+                features: data.features || []
+              },
+              images: data.images || [],
+              featured: data.featured
+            });
+          }
+        } catch (err) {
+          console.error('Error fetching property:', err);
+          toast.error('Erro ao carregar imóvel');
+          setLocation('/admin/imoveis');
+        }
       }
+      fetchProperty();
     }
   }, [id, isEditing, setLocation]);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Simulação de salvamento
-    toast.success(isEditing ? 'Imóvel atualizado com sucesso!' : 'Imóvel cadastrado com sucesso!', {
-      description: 'Como estamos em modo demonstração, as alterações não serão persistidas no banco de dados.',
-      duration: 5000,
-    });
+    try {
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        type: formData.type,
+        operation: formData.operation,
+        status: formData.status,
+        price: formData.price,
+        city: formData.location?.city,
+        neighborhood: formData.location?.neighborhood,
+        address: formData.location?.address,
+        bedrooms: formData.details?.bedrooms,
+        bathrooms: formData.details?.bathrooms,
+        garages: formData.details?.garages,
+        area: formData.details?.area,
+        features: formData.details?.features,
+        images: formData.images,
+        featured: formData.featured
+      };
 
-    setTimeout(() => {
+      let error;
+      if (isEditing) {
+        ({ error } = await supabase
+          .from('properties')
+          .update(payload)
+          .eq('id', id));
+      } else {
+        ({ error } = await supabase
+          .from('properties')
+          .insert([payload]));
+      }
+
+      if (error) throw error;
+
+      toast.success(isEditing ? 'Imóvel atualizado com sucesso!' : 'Imóvel cadastrado com sucesso!');
       setLocation('/admin/imoveis');
-    }, 2000);
+    } catch (err) {
+      console.error('Error saving property:', err);
+      toast.error('Erro ao salvar imóvel');
+    }
   };
 
   const addFeature = () => {
@@ -412,7 +477,7 @@ export default function PropertyForm() {
             <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 flex gap-3">
               <CheckCircle2 className="text-primary shrink-0" />
               <p className="text-xs text-primary/80">
-                Lembre-se: em modo de demonstração, as imagens e dados são salvos apenas localmente nesta sessão.
+                Seu imóvel ficará disponível imediatamente no site após salvar.
               </p>
             </div>
           </div>

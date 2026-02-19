@@ -1,14 +1,81 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { mockProperties, mockTestimonials } from '../../../shared/mockData';
+import { mockTestimonials } from '../../../shared/mockData';
 import PropertyCard from '@/components/PropertyCard';
 import { Button } from '@/components/ui/button';
 import { Star, CheckCircle, Users, TrendingUp, ArrowRight } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { Property } from '../../../shared/types';
 
 export default function Home() {
   const [, setLocation] = useLocation();
   const [searchType, setSearchType] = useState<'rent' | 'sale'>('sale');
   const [searchCity, setSearchCity] = useState('');
+  const [featuredProperties, setFeaturedProperties] = useState<Property[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        // Fetch featured properties
+        const { data, error } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('status', 'available')
+          .eq('featured', true)
+          .limit(3);
+
+        if (error) throw error;
+
+        if (data) {
+          const mappedProperties: Property[] = (data as any[]).map((p: any) => ({
+            id: p.id,
+            title: p.title,
+            description: p.description,
+            type: p.type,
+            operation: p.operation,
+            status: p.status,
+            price: p.price,
+            location: {
+              city: p.city,
+              neighborhood: p.neighborhood,
+              address: p.address
+            },
+            details: {
+              bedrooms: p.bedrooms,
+              bathrooms: p.bathrooms,
+              garages: p.garages,
+              area: p.area,
+              features: p.features || []
+            },
+            images: p.images || [],
+            featured: p.featured,
+            createdAt: p.created_at,
+            updatedAt: p.updated_at
+          }));
+          setFeaturedProperties(mappedProperties);
+        }
+
+        // Fetch all cities for the search filter
+        const { data: cityData, error: cityError } = await supabase
+          .from('properties')
+          .select('city')
+          .eq('status', 'available');
+
+        if (!cityError && cityData) {
+          const uniqueCities = Array.from(new Set((cityData as any[]).map((c: any) => c.city))) as string[];
+          setCities(uniqueCities);
+        }
+      } catch (err) {
+        console.error('Error fetching data:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []);
 
   const handleSearch = () => {
     setLocation('/imoveis');
@@ -17,9 +84,6 @@ export default function Home() {
   const handleViewDetails = (id: string) => {
     setLocation(`/imovel/${id}`);
   };
-
-  const featuredProperties = mockProperties.filter((p) => p.featured).slice(0, 3);
-  const cities = Array.from(new Set(mockProperties.map((p) => p.location.city)));
 
   return (
     <div className="min-h-screen bg-background">
@@ -47,21 +111,19 @@ export default function Home() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setSearchType('sale')}
-                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                      searchType === 'sale'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-foreground hover:bg-muted/80'
-                    }`}
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${searchType === 'sale'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-foreground hover:bg-muted/80'
+                      }`}
                   >
                     Comprar
                   </button>
                   <button
                     onClick={() => setSearchType('rent')}
-                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                      searchType === 'rent'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-foreground hover:bg-muted/80'
-                    }`}
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${searchType === 'rent'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-foreground hover:bg-muted/80'
+                      }`}
                   >
                     Alugar
                   </button>

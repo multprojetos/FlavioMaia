@@ -11,7 +11,6 @@ export default function Header() {
     { label: 'Imóveis', href: '/imoveis' },
     { label: 'Serviços', href: '/servicos' },
     { label: 'Quem Somos', href: '/quem-somos' },
-    { label: 'Blog', href: '/blog' },
     { label: 'Contato', href: '/contato' },
   ];
 
@@ -71,8 +70,8 @@ export default function Header() {
             <div className="flex flex-col gap-2 pt-4">
               {navItems.map((item) => (
                 <Link key={item.href} href={item.href} onClick={() => setIsMenuOpen(false)} className="px-4 py-2 text-sm font-medium text-foreground hover:text-primary hover:bg-muted rounded-md transition-colors block">
-                {item.label}
-              </Link>
+                  {item.label}
+                </Link>
               ))}
               <div className="flex flex-col gap-2 pt-2 border-t border-border mt-2">
                 <a

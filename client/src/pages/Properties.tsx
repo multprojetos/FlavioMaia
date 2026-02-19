@@ -1,18 +1,68 @@
-import { useState, useMemo } from 'react';
-import { mockProperties } from '../../../shared/mockData';
-import { SearchFilters } from '@shared/types';
+import { useState, useMemo, useEffect } from 'react';
 import PropertyCard from '@/components/PropertyCard';
 import { useLocation } from 'wouter';
-import { Filter, X } from 'lucide-react';
+import { Filter, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabase';
+import { Property, SearchFilters } from '../../../shared/types';
 
 export default function Properties() {
   const [, setLocation] = useLocation();
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({});
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchProperties() {
+      try {
+        const { data, error } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('status', 'available')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (data) {
+          const mapped: Property[] = (data as any[]).map((p: any) => ({
+            id: p.id,
+            title: p.title,
+            description: p.description,
+            type: p.type,
+            operation: p.operation,
+            status: p.status,
+            price: Number(p.price),
+            location: {
+              city: p.city,
+              neighborhood: p.neighborhood,
+              address: p.address
+            },
+            details: {
+              bedrooms: p.bedrooms,
+              bathrooms: p.bathrooms,
+              garages: p.garages,
+              area: p.area,
+              features: p.features || []
+            },
+            images: p.images || [],
+            featured: p.featured,
+            createdAt: p.created_at,
+            updatedAt: p.updated_at
+          }));
+          setProperties(mapped);
+        }
+      } catch (err) {
+        console.error('Error:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProperties();
+  }, []);
 
   const filteredProperties = useMemo(() => {
-    return mockProperties.filter((property) => {
+    return properties.filter((property) => {
       if (filters.type && property.type !== filters.type) return false;
       if (filters.operation && property.operation !== filters.operation) return false;
       if (filters.city && property.location.city !== filters.city) return false;
@@ -32,7 +82,9 @@ export default function Properties() {
     setLocation(`/imovel/${id}`);
   };
 
-  const cities = Array.from(new Set(mockProperties.map((p) => p.location.city)));
+  const cities = useMemo(() => {
+    return Array.from(new Set(properties.map((p) => p.location.city)));
+  }, [properties]);
   const types = [
     { value: 'apartment', label: 'Apartamento' },
     { value: 'house', label: 'Casa' },
@@ -237,7 +289,12 @@ export default function Properties() {
             </div>
 
             {/* Properties Grid */}
-            {filteredProperties.length > 0 ? (
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-20">
+                <Loader2 className="animate-spin text-primary mb-4" size={48} />
+                <p className="text-muted-foreground">Carregando imóveis...</p>
+              </div>
+            ) : filteredProperties.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredProperties.map((property) => (
                   <PropertyCard
