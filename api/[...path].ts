@@ -3,11 +3,11 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 // ---------------------------------------------------------------------------
-// Supabase Client
+// Supabase Client Setup
 // ---------------------------------------------------------------------------
 const rawUrl = process.env.SUPABASE_URL || '';
 const supabaseUrl = rawUrl.trim().replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
-const supabaseServiceKey = (process.env.SUPABASE_SERVICE_KEY || '').trim();
+const supabaseServiceKey = (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -18,7 +18,39 @@ const isSupabaseConfigured = () => Boolean(supabaseUrl && supabaseServiceKey);
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helper: Map flat DB columns to expected nested Property object format
+// ---------------------------------------------------------------------------
+function formatPropertyFromDb(row: any) {
+  if (!row) return null;
+  return {
+    id: String(row.id),
+    title: row.title || '',
+    description: row.description || '',
+    type: row.type || 'apartment',
+    operation: row.operation || 'rent',
+    status: row.status || 'available',
+    price: Number(row.price || 0),
+    location: {
+      city: row.city || 'Carmo',
+      neighborhood: row.neighborhood || '',
+      address: row.address || '',
+    },
+    details: {
+      bedrooms: Number(row.bedrooms || 0),
+      bathrooms: Number(row.bathrooms || 0),
+      garages: Number(row.garages || 0),
+      area: Number(row.area || 0),
+      features: Array.isArray(row.features) ? row.features : [],
+    },
+    images: Array.isArray(row.images) ? row.images : [],
+    featured: Boolean(row.featured),
+    createdAt: row.created_at || new Date().toISOString(),
+    updatedAt: row.updated_at || new Date().toISOString(),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Helpers: CORS & Auth
 // ---------------------------------------------------------------------------
 function setCors(res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -37,17 +69,15 @@ function verifyToken(authHeader: string | undefined): any | null {
 }
 
 // ---------------------------------------------------------------------------
-// Main Handler (catch-all for /api/*)
+// Main Handler (Serverless API Endpoint)
 // ---------------------------------------------------------------------------
 export default async function handler(req: any, res: any) {
   setCors(res);
 
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  // Parse the path: req.url will be something like /api/auth/login or /api/properties/123
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
   const pathname = url.pathname;
   const method = req.method || 'GET';
@@ -62,7 +92,6 @@ export default async function handler(req: any, res: any) {
       const { username, password } = req.body || {};
 
       if (!isSupabaseConfigured()) {
-        // Dev mode fallback
         if (username === 'admin' && password === 'admin123') {
           const token = jwt.sign({ id: '1', username: 'admin', role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
           return res.status(200).json({
@@ -71,6 +100,15 @@ export default async function handler(req: any, res: any) {
           });
         }
         return res.status(401).json({ error: 'Credenciais inválidas' });
+      }
+
+      // Check default admin fallback
+      if (username === 'admin' && password === 'admin123') {
+        const token = jwt.sign({ id: '1', username: 'admin', role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
+        return res.status(200).json({
+          token,
+          user: { id: '1', username: 'admin', email: 'admin@flaviomaia.com.br', role: 'admin' },
+        });
       }
 
       // Supabase lookup
@@ -81,24 +119,10 @@ export default async function handler(req: any, res: any) {
         .single();
 
       if (error || !user) {
-        // Fallback for default admin if not created in DB yet
-        if (username === 'admin' && password === 'admin123') {
-          const token = jwt.sign({ id: '1', username: 'admin', role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
-          return res.status(200).json({
-            token,
-            user: { id: '1', username: 'admin', email: 'admin@flaviomaia.com.br', role: 'admin' },
-          });
-        }
         return res.status(401).json({ error: 'Credenciais inválidas' });
       }
 
-      let validPassword = await bcrypt.compare(password, user.password).catch(() => false);
-      
-      // Fallback for default admin password check
-      if (!validPassword && username === 'admin' && password === 'admin123') {
-        validPassword = true;
-      }
-
+      const validPassword = await bcrypt.compare(password, user.password).catch(() => false);
       if (!validPassword) {
         return res.status(401).json({ error: 'Credenciais inválidas' });
       }
@@ -138,8 +162,13 @@ export default async function handler(req: any, res: any) {
         .eq('status', 'available')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return res.status(200).json(data || []);
+      if (error) {
+        console.error('Supabase error fetching properties:', error);
+        return res.status(200).json([]);
+      }
+
+      const formatted = (data || []).map(formatPropertyFromDb);
+      return res.status(200).json(formatted);
     }
 
     // GET /api/properties/:id
@@ -162,11 +191,11 @@ export default async function handler(req: any, res: any) {
         return res.status(404).json({ error: 'Imóvel não encontrado' });
       }
 
-      return res.status(200).json(data);
+      return res.status(200).json(formatPropertyFromDb(data));
     }
 
     // =========================================================================
-    // ADMIN PROPERTIES (all require auth)
+    // ADMIN PROPERTIES
     // =========================================================================
 
     // GET /api/admin/properties
@@ -183,8 +212,30 @@ export default async function handler(req: any, res: any) {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return res.status(200).json(data || []);
+      if (error) {
+        console.error('Supabase error fetching admin properties:', error);
+        return res.status(200).json([]);
+      }
+
+      const formatted = (data || []).map(formatPropertyFromDb);
+      return res.status(200).json(formatted);
+    }
+
+    // GET /api/admin/properties/:id
+    const adminPropertyGetMatch = pathname.match(/^\/api\/admin\/properties\/([^/]+)$/);
+    if (adminPropertyGetMatch && method === 'GET') {
+      const decoded = verifyToken(req.headers.authorization);
+      if (!decoded) return res.status(401).json({ error: 'Token não fornecido' });
+
+      const id = adminPropertyGetMatch[1];
+      const { data, error } = await supabase
+        .from('properties')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error || !data) return res.status(404).json({ error: 'Imóvel não encontrado' });
+      return res.status(200).json(formatPropertyFromDb(data));
     }
 
     // POST /api/admin/properties
@@ -196,7 +247,7 @@ export default async function handler(req: any, res: any) {
         return res.status(501).json({ error: 'Supabase não configurado' });
       }
 
-      const property = req.body;
+      const property = req.body || {};
       const { data, error } = await supabase
         .from('properties')
         .insert([{
@@ -206,22 +257,26 @@ export default async function handler(req: any, res: any) {
           operation: property.operation,
           status: property.status || 'available',
           price: property.price,
-          city: property.location?.city,
-          neighborhood: property.location?.neighborhood,
-          address: property.location?.address,
-          bedrooms: property.details?.bedrooms,
-          bathrooms: property.details?.bathrooms,
-          garages: property.details?.garages,
-          area: property.details?.area,
-          features: property.details?.features,
-          images: property.images,
+          city: property.location?.city || 'Carmo',
+          neighborhood: property.location?.neighborhood || '',
+          address: property.location?.address || '',
+          bedrooms: property.details?.bedrooms || 0,
+          bathrooms: property.details?.bathrooms || 0,
+          garages: property.details?.garages || 0,
+          area: property.details?.area || 0,
+          features: property.details?.features || [],
+          images: property.images || [],
           featured: property.featured || false,
         }])
         .select()
         .single();
 
-      if (error) throw error;
-      return res.status(201).json(data);
+      if (error) {
+        console.error('Supabase error inserting property:', error);
+        return res.status(500).json({ error: 'Erro ao cadastrar imóvel no Supabase' });
+      }
+
+      return res.status(201).json(formatPropertyFromDb(data));
     }
 
     // PUT /api/admin/properties/:id
@@ -235,7 +290,7 @@ export default async function handler(req: any, res: any) {
       }
 
       const id = adminPropertyUpdateMatch[1];
-      const property = req.body;
+      const property = req.body || {};
 
       const { data, error } = await supabase
         .from('properties')
@@ -261,8 +316,12 @@ export default async function handler(req: any, res: any) {
         .select()
         .single();
 
-      if (error) throw error;
-      return res.status(200).json(data);
+      if (error) {
+        console.error('Supabase error updating property:', error);
+        return res.status(500).json({ error: 'Erro ao atualizar imóvel' });
+      }
+
+      return res.status(200).json(formatPropertyFromDb(data));
     }
 
     // DELETE /api/admin/properties/:id
@@ -296,7 +355,7 @@ export default async function handler(req: any, res: any) {
       }
 
       const id = adminStatusMatch[1];
-      const { status } = req.body;
+      const { status } = req.body || {};
 
       const { data, error } = await supabase
         .from('properties')
@@ -306,12 +365,9 @@ export default async function handler(req: any, res: any) {
         .single();
 
       if (error) throw error;
-      return res.status(200).json(data);
+      return res.status(200).json(formatPropertyFromDb(data));
     }
 
-    // =========================================================================
-    // 404 - Route not found
-    // =========================================================================
     return res.status(404).json({ error: 'Rota não encontrada' });
 
   } catch (error: any) {
