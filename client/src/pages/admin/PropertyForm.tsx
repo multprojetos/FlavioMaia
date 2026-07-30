@@ -51,6 +51,87 @@ export default function PropertyForm() {
   const [newImageUrl, setNewImageUrl] = useState('');
   const [compressing, setCompressing] = useState(false);
 
+  useEffect(() => {
+    if (isEdit) {
+      fetchProperty();
+    }
+  }, [params.id]);
+
+  const fetchProperty = async () => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      const response = await fetch(`/api/admin/properties/${params.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) throw new Error('Erro ao carregar imóvel');
+
+      const data = await response.json();
+      setFormData(data);
+    } catch (error) {
+      toast.error('Erro ao carregar imóvel');
+      setLocation('/admin/imoveis');
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const token = localStorage.getItem('admin_token');
+      const url = isEdit
+        ? `/api/admin/properties/${params.id}`
+        : '/api/admin/properties';
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...formData,
+          createdAt: formData.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }),
+      });
+
+      if (!response.ok) throw new Error('Erro ao salvar imóvel');
+
+      toast.success(isEdit ? 'Imóvel atualizado com sucesso' : 'Imóvel cadastrado com sucesso');
+      setLocation('/admin/imoveis');
+    } catch (error) {
+      toast.error('Erro ao salvar imóvel');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addFeature = () => {
+    if (newFeature.trim()) {
+      setFormData({
+        ...formData,
+        details: {
+          ...formData.details!,
+          features: [...(formData.details?.features || []), newFeature.trim()],
+        },
+      });
+      setNewFeature('');
+    }
+  };
+
+  const removeFeature = (index: number) => {
+    setFormData({
+      ...formData,
+      details: {
+        ...formData.details!,
+        features: formData.details!.features.filter((_, i) => i !== index),
+      },
+    });
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
