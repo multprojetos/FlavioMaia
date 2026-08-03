@@ -5,11 +5,19 @@ import jwt from 'jsonwebtoken';
 // ---------------------------------------------------------------------------
 // Supabase Client Setup
 // ---------------------------------------------------------------------------
-const rawUrl = process.env.SUPABASE_URL || '';
-const supabaseUrl = rawUrl.trim().replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
-const supabaseServiceKey = (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
+function cleanEnvVar(val?: string): string {
+  if (!val) return '';
+  return val.trim().replace(/^["']|["']$/g, '').trim();
+}
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+const rawUrl = cleanEnvVar(process.env.SUPABASE_URL);
+let supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
+if (supabaseUrl && !supabaseUrl.startsWith('http://') && !supabaseUrl.startsWith('https://')) {
+  supabaseUrl = `https://${supabaseUrl}`;
+}
+const supabaseServiceKey = cleanEnvVar(process.env.SUPABASE_SERVICE_KEY) || cleanEnvVar(process.env.SUPABASE_ANON_KEY);
+
+const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseServiceKey || 'placeholder', {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
@@ -325,14 +333,18 @@ async function processBase64ImagesToStorage(images: string[], supabaseClient: an
 
         if (error) {
           console.error('Supabase error inserting property:', error);
-          return res.status(500).json({ error: `Erro no Supabase: ${error.message}` });
+          let msg = error.message;
+          if (msg === 'TypeError: fetch failed' || msg?.includes('fetch failed')) {
+            msg = `Falha de conexão com a API do Supabase URL (${supabaseUrl}). Verifique se o projeto no Supabase está ativo e se a chave SUPABASE_SERVICE_KEY na Vercel está correta.`;
+          }
+          return res.status(500).json({ error: `Erro no Supabase: ${msg}` });
         }
 
         return res.status(201).json(formatPropertyFromDb(data));
       } catch (fetchErr: any) {
         console.error('Network/fetch error inserting to Supabase:', fetchErr);
         return res.status(500).json({
-          error: `Falha na conexão com Supabase (${fetchErr.message || 'fetch failed'}). Verifique se o projeto no Supabase está ativo (não pausado) e se SUPABASE_URL / SUPABASE_SERVICE_KEY na Vercel estão corretas.`,
+          error: `Falha na conexão com Supabase (${fetchErr.message || 'fetch failed'}) em (${supabaseUrl}). Verifique se o projeto no Supabase está ativo (não pausado) e se SUPABASE_URL / SUPABASE_SERVICE_KEY na Vercel estão corretas.`,
         });
       }
     }
