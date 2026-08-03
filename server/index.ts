@@ -43,17 +43,19 @@ async function startServer() {
   // AUTH - Login
   app.post('/api/auth/login', async (req, res) => {
     try {
-      const { username, password } = req.body as LoginRequest;
+      const username = String(req.body?.username || '').trim();
+      const password = String(req.body?.password || '').trim();
+
+      // Check default admin fallback (admin / admin123)
+      if (username.toLowerCase() === 'admin' && password === 'admin123') {
+        const token = jwt.sign({ id: '1', username: 'admin', role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
+        return res.json({
+          token,
+          user: { id: '1', username: 'admin', email: 'admin@flaviomaia.com.br', role: 'admin' }
+        });
+      }
 
       if (!isSupabaseConfigured()) {
-        // Modo desenvolvimento sem Supabase
-        if (username === 'admin' && password === 'admin123') {
-          const token = jwt.sign({ id: '1', username: 'admin', role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
-          return res.json({
-            token,
-            user: { id: '1', username: 'admin', email: 'admin@flaviomaia.com.br', role: 'admin' }
-          });
-        }
         return res.status(401).json({ error: 'Credenciais inválidas' });
       }
 
@@ -68,8 +70,11 @@ async function startServer() {
         return res.status(401).json({ error: 'Credenciais inválidas' });
       }
 
-      // Verificar senha
-      const validPassword = await bcrypt.compare(password, user.password);
+      // Verificar senha (suporta senha em texto plano e hash bcrypt)
+      const isPlainMatch = password === user.password;
+      const isBcryptMatch = await bcrypt.compare(password, user.password).catch(() => false);
+      const validPassword = isPlainMatch || isBcryptMatch;
+
       if (!validPassword) {
         return res.status(401).json({ error: 'Credenciais inválidas' });
       }

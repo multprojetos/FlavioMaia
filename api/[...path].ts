@@ -90,6 +90,17 @@ export default async function handler(req: any, res: any) {
   const pathname = url.pathname;
   const method = req.method || 'GET';
 
+  let body = req.body;
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      body = {};
+    }
+  } else if (!body) {
+    body = {};
+  }
+
   try {
     // =========================================================================
     // AUTH ROUTES
@@ -97,26 +108,20 @@ export default async function handler(req: any, res: any) {
 
     // POST /api/auth/login
     if (pathname === '/api/auth/login' && method === 'POST') {
-      const { username, password } = req.body || {};
+      const username = String(body.username || '').trim();
+      const password = String(body.password || '').trim();
 
-      if (!isSupabaseConfigured()) {
-        if (username === 'admin' && password === 'admin123') {
-          const token = jwt.sign({ id: '1', username: 'admin', role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
-          return res.status(200).json({
-            token,
-            user: { id: '1', username: 'admin', email: 'admin@flaviomaia.com.br', role: 'admin' },
-          });
-        }
-        return res.status(401).json({ error: 'Credenciais inválidas' });
-      }
-
-      // Check default admin fallback
-      if (username === 'admin' && password === 'admin123') {
+      // Check default fallback admin (admin / admin123)
+      if (username.toLowerCase() === 'admin' && password === 'admin123') {
         const token = jwt.sign({ id: '1', username: 'admin', role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
         return res.status(200).json({
           token,
           user: { id: '1', username: 'admin', email: 'admin@flaviomaia.com.br', role: 'admin' },
         });
+      }
+
+      if (!isSupabaseConfigured()) {
+        return res.status(401).json({ error: 'Credenciais inválidas' });
       }
 
       // Supabase lookup
@@ -130,7 +135,10 @@ export default async function handler(req: any, res: any) {
         return res.status(401).json({ error: 'Credenciais inválidas' });
       }
 
-      const validPassword = await bcrypt.compare(password, user.password).catch(() => false);
+      const isPlainMatch = password === user.password;
+      const isBcryptMatch = await bcrypt.compare(password, user.password).catch(() => false);
+      const validPassword = isPlainMatch || isBcryptMatch;
+
       if (!validPassword) {
         return res.status(401).json({ error: 'Credenciais inválidas' });
       }
