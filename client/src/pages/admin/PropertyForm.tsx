@@ -98,12 +98,25 @@ export default function PropertyForm() {
         }),
       });
 
-      if (!response.ok) throw new Error('Erro ao salvar imóvel');
+      if (!response.ok) {
+        let errorMessage = 'Erro ao salvar imóvel';
+        try {
+          const errData = await response.json();
+          if (errData?.error) errorMessage = errData.error;
+        } catch {
+          if (response.status === 413) {
+            errorMessage = 'Payload muito grande (máximo suportado de imagens atingido). Reduza o tamanho ou quantidade de imagens.';
+          } else {
+            errorMessage = `Erro no servidor (Código HTTP ${response.status})`;
+          }
+        }
+        throw new Error(errorMessage);
+      }
 
       toast.success(isEdit ? 'Imóvel atualizado com sucesso' : 'Imóvel cadastrado com sucesso');
       setLocation('/admin/imoveis');
-    } catch (error) {
-      toast.error('Erro ao salvar imóvel');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao salvar imóvel');
     } finally {
       setLoading(false);
     }
@@ -143,11 +156,11 @@ export default function PropertyForm() {
       const compressedUrls: string[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        // Compress to max 1920px width/height and WebP format
+        // Compress to max 1200px width/height and WebP format (0.75 quality for optimal payload size)
         const compressed = await compressImage(file, {
-          maxWidth: 1920,
-          maxHeight: 1920,
-          quality: 0.82,
+          maxWidth: 1200,
+          maxHeight: 1200,
+          quality: 0.75,
           format: 'image/webp',
         });
         compressedUrls.push(compressed);
@@ -174,9 +187,9 @@ export default function PropertyForm() {
         setCompressing(true);
         // Also optimize external URL image if provided
         const compressed = await compressImage(newImageUrl.trim(), {
-          maxWidth: 1920,
-          maxHeight: 1920,
-          quality: 0.82,
+          maxWidth: 1200,
+          maxHeight: 1200,
+          quality: 0.75,
           format: 'image/webp',
         }).catch(() => newImageUrl.trim()); // Fallback if CORS prevents canvas manipulation
 

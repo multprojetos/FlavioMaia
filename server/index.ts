@@ -33,8 +33,8 @@ async function startServer() {
   const server = createServer(app);
 
   // Middleware
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // ============================================================================
   // API ROUTES
@@ -178,6 +178,53 @@ async function startServer() {
     }
   });
 
+  async function processBase64ImagesToStorage(images: string[], supabaseClient: any): Promise<string[]> {
+    if (!Array.isArray(images) || images.length === 0) return images;
+
+    const processed: string[] = [];
+
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i];
+      if (typeof img === 'string' && img.startsWith('data:image/')) {
+        try {
+          const matches = img.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+          if (matches) {
+            const mimeType = matches[1];
+            const base64Data = matches[2];
+            const extension = mimeType.split('/')[1] || 'webp';
+            const buffer = Buffer.from(base64Data, 'base64');
+            const fileName = `prop_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 7)}.${extension}`;
+
+            const { data, error } = await supabaseClient.storage
+              .from('property-images')
+              .upload(fileName, buffer, {
+                contentType: mimeType,
+                upsert: true,
+              });
+
+            if (!error && data?.path) {
+              const { data: publicUrlData } = supabaseClient.storage
+                .from('property-images')
+                .getPublicUrl(fileName);
+
+              if (publicUrlData?.publicUrl) {
+                processed.push(publicUrlData.publicUrl);
+                continue;
+              }
+            } else {
+              console.warn('Supabase Storage upload warning (falling back to base64):', error?.message);
+            }
+          }
+        } catch (err) {
+          console.warn('Error processing image to storage:', err);
+        }
+      }
+      processed.push(img);
+    }
+
+    return processed;
+  }
+
   // PROPERTIES - Criar (admin)
   app.post('/api/admin/properties', authMiddleware, async (req, res) => {
     try {
@@ -186,6 +233,8 @@ async function startServer() {
       if (!isSupabaseConfigured()) {
         return res.status(501).json({ error: 'Supabase não configurado. Configure para usar esta funcionalidade.' });
       }
+
+      const processedImages = await processBase64ImagesToStorage(property.images || [], supabase);
 
       const { data, error } = await supabase
         .from('properties')
@@ -196,15 +245,15 @@ async function startServer() {
           operation: property.operation,
           status: property.status || 'available',
           price: property.price,
-          city: property.location.city,
-          neighborhood: property.location.neighborhood,
-          address: property.location.address,
-          bedrooms: property.details.bedrooms,
-          bathrooms: property.details.bathrooms,
-          garages: property.details.garages,
-          area: property.details.area,
-          features: property.details.features,
-          images: property.images,
+          city: property.location?.city,
+          neighborhood: property.location?.neighborhood,
+          address: property.location?.address,
+          bedrooms: property.details?.bedrooms,
+          bathrooms: property.details?.bathrooms,
+          garages: property.details?.garages,
+          area: property.details?.area,
+          features: property.details?.features,
+          images: processedImages,
           featured: property.featured || false,
         }])
         .select()
@@ -212,9 +261,9 @@ async function startServer() {
 
       if (error) throw error;
       res.status(201).json(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao criar imóvel:', error);
-      res.status(500).json({ error: 'Erro ao criar imóvel' });
+      res.status(500).json({ error: error.message || 'Erro ao criar imóvel' });
     }
   });
 
@@ -228,6 +277,8 @@ async function startServer() {
         return res.status(501).json({ error: 'Supabase não configurado' });
       }
 
+      const processedImages = property.images ? await processBase64ImagesToStorage(property.images, supabase) : undefined;
+
       const { data, error } = await supabase
         .from('properties')
         .update({
@@ -237,15 +288,15 @@ async function startServer() {
           operation: property.operation,
           status: property.status,
           price: property.price,
-          city: property.location.city,
-          neighborhood: property.location.neighborhood,
-          address: property.location.address,
-          bedrooms: property.details.bedrooms,
-          bathrooms: property.details.bathrooms,
-          garages: property.details.garages,
-          area: property.details.area,
-          features: property.details.features,
-          images: property.images,
+          city: property.location?.city,
+          neighborhood: property.location?.neighborhood,
+          address: property.location?.address,
+          bedrooms: property.details?.bedrooms,
+          bathrooms: property.details?.bathrooms,
+          garages: property.details?.garages,
+          area: property.details?.area,
+          features: property.details?.features,
+          images: processedImages,
           featured: property.featured,
         })
         .eq('id', id)
@@ -254,9 +305,9 @@ async function startServer() {
 
       if (error) throw error;
       res.json(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao atualizar imóvel:', error);
-      res.status(500).json({ error: 'Erro ao atualizar imóvel' });
+      res.status(500).json({ error: error.message || 'Erro ao atualizar imóvel' });
     }
   });
 

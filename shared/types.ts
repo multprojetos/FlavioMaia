@@ -2,6 +2,17 @@ export type PropertyType = 'apartment' | 'house' | 'commercial';
 export type PropertyOperation = 'rent' | 'sale';
 export type PropertyStatus = 'available' | 'rented' | 'sold';
 
+export interface SearchFilters {
+  type?: PropertyType | string;
+  operation?: PropertyOperation | string;
+  city?: string;
+  neighborhood?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  minBedrooms?: number;
+  minArea?: number;
+}
+
 export interface Property {
   id: string;
   title: string;

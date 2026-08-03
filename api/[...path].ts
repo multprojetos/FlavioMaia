@@ -238,6 +238,53 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json(formatPropertyFromDb(data));
     }
 
+async function processBase64ImagesToStorage(images: string[], supabaseClient: any): Promise<string[]> {
+  if (!Array.isArray(images) || images.length === 0) return images;
+
+  const processed: string[] = [];
+
+  for (let i = 0; i < images.length; i++) {
+    const img = images[i];
+    if (typeof img === 'string' && img.startsWith('data:image/')) {
+      try {
+        const matches = img.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+        if (matches) {
+          const mimeType = matches[1];
+          const base64Data = matches[2];
+          const extension = mimeType.split('/')[1] || 'webp';
+          const buffer = Buffer.from(base64Data, 'base64');
+          const fileName = `prop_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 7)}.${extension}`;
+
+          const { data, error } = await supabaseClient.storage
+            .from('property-images')
+            .upload(fileName, buffer, {
+              contentType: mimeType,
+              upsert: true,
+            });
+
+          if (!error && data?.path) {
+            const { data: publicUrlData } = supabaseClient.storage
+              .from('property-images')
+              .getPublicUrl(fileName);
+
+            if (publicUrlData?.publicUrl) {
+              processed.push(publicUrlData.publicUrl);
+              continue;
+            }
+          } else {
+            console.warn('Supabase Storage upload warning (falling back to base64):', error?.message);
+          }
+        }
+      } catch (err) {
+        console.warn('Error processing image to storage:', err);
+      }
+    }
+    processed.push(img);
+  }
+
+  return processed;
+}
+
     // POST /api/admin/properties
     if (pathname === '/api/admin/properties' && method === 'POST') {
       const decoded = verifyToken(req.headers.authorization);
@@ -248,6 +295,8 @@ export default async function handler(req: any, res: any) {
       }
 
       const property = req.body || {};
+      const processedImages = await processBase64ImagesToStorage(property.images || [], supabase);
+
       const { data, error } = await supabase
         .from('properties')
         .insert([{
@@ -265,7 +314,7 @@ export default async function handler(req: any, res: any) {
           garages: property.details?.garages || 0,
           area: property.details?.area || 0,
           features: property.details?.features || [],
-          images: property.images || [],
+          images: processedImages,
           featured: property.featured || false,
         }])
         .select()
@@ -273,7 +322,7 @@ export default async function handler(req: any, res: any) {
 
       if (error) {
         console.error('Supabase error inserting property:', error);
-        return res.status(500).json({ error: 'Erro ao cadastrar imóvel no Supabase' });
+        return res.status(500).json({ error: `Erro no Supabase: ${error.message}` });
       }
 
       return res.status(201).json(formatPropertyFromDb(data));
@@ -291,6 +340,7 @@ export default async function handler(req: any, res: any) {
 
       const id = adminPropertyUpdateMatch[1];
       const property = req.body || {};
+      const processedImages = property.images ? await processBase64ImagesToStorage(property.images, supabase) : undefined;
 
       const { data, error } = await supabase
         .from('properties')
@@ -309,7 +359,7 @@ export default async function handler(req: any, res: any) {
           garages: property.details?.garages,
           area: property.details?.area,
           features: property.details?.features,
-          images: property.images,
+          images: processedImages,
           featured: property.featured,
         })
         .eq('id', id)
@@ -318,7 +368,7 @@ export default async function handler(req: any, res: any) {
 
       if (error) {
         console.error('Supabase error updating property:', error);
-        return res.status(500).json({ error: 'Erro ao atualizar imóvel' });
+        return res.status(500).json({ error: `Erro no Supabase: ${error.message}` });
       }
 
       return res.status(200).json(formatPropertyFromDb(data));

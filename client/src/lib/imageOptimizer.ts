@@ -18,9 +18,9 @@ export async function compressImage(
   options: CompressionOptions = {}
 ): Promise<string> {
   const {
-    maxWidth = 1920,
-    maxHeight = 1920,
-    quality = 0.8,
+    maxWidth = 1200,
+    maxHeight = 1200,
+    quality = 0.75,
     format = 'image/webp',
   } = options;
 
