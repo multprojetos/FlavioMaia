@@ -255,14 +255,18 @@ async function processBase64ImagesToStorage(images: string[], supabaseClient: an
           const buffer = Buffer.from(base64Data, 'base64');
           const fileName = `prop_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 7)}.${extension}`;
 
-          const { data, error } = await supabaseClient.storage
+          const res = await supabaseClient.storage
             .from('property-images')
             .upload(fileName, buffer, {
               contentType: mimeType,
               upsert: true,
+            })
+            .catch((storageErr: any) => {
+              console.warn('Supabase Storage upload warning (falling back to base64):', storageErr?.message || storageErr);
+              return { data: null, error: storageErr };
             });
 
-          if (!error && data?.path) {
+          if (res && !res.error && res.data?.path) {
             const { data: publicUrlData } = supabaseClient.storage
               .from('property-images')
               .getPublicUrl(fileName);
@@ -271,12 +275,10 @@ async function processBase64ImagesToStorage(images: string[], supabaseClient: an
               processed.push(publicUrlData.publicUrl);
               continue;
             }
-          } else {
-            console.warn('Supabase Storage upload warning (falling back to base64):', error?.message);
           }
         }
-      } catch (err) {
-        console.warn('Error processing image to storage:', err);
+      } catch (err: any) {
+        console.warn('Error processing image to storage:', err?.message || err);
       }
     }
     processed.push(img);
@@ -297,35 +299,42 @@ async function processBase64ImagesToStorage(images: string[], supabaseClient: an
       const property = req.body || {};
       const processedImages = await processBase64ImagesToStorage(property.images || [], supabase);
 
-      const { data, error } = await supabase
-        .from('properties')
-        .insert([{
-          title: property.title,
-          description: property.description,
-          type: property.type,
-          operation: property.operation,
-          status: property.status || 'available',
-          price: property.price,
-          city: property.location?.city || 'Carmo',
-          neighborhood: property.location?.neighborhood || '',
-          address: property.location?.address || '',
-          bedrooms: property.details?.bedrooms || 0,
-          bathrooms: property.details?.bathrooms || 0,
-          garages: property.details?.garages || 0,
-          area: property.details?.area || 0,
-          features: property.details?.features || [],
-          images: processedImages,
-          featured: property.featured || false,
-        }])
-        .select()
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('properties')
+          .insert([{
+            title: property.title,
+            description: property.description,
+            type: property.type,
+            operation: property.operation,
+            status: property.status || 'available',
+            price: property.price,
+            city: property.location?.city || 'Carmo',
+            neighborhood: property.location?.neighborhood || '',
+            address: property.location?.address || '',
+            bedrooms: property.details?.bedrooms || 0,
+            bathrooms: property.details?.bathrooms || 0,
+            garages: property.details?.garages || 0,
+            area: property.details?.area || 0,
+            features: property.details?.features || [],
+            images: processedImages,
+            featured: property.featured || false,
+          }])
+          .select()
+          .single();
 
-      if (error) {
-        console.error('Supabase error inserting property:', error);
-        return res.status(500).json({ error: `Erro no Supabase: ${error.message}` });
+        if (error) {
+          console.error('Supabase error inserting property:', error);
+          return res.status(500).json({ error: `Erro no Supabase: ${error.message}` });
+        }
+
+        return res.status(201).json(formatPropertyFromDb(data));
+      } catch (fetchErr: any) {
+        console.error('Network/fetch error inserting to Supabase:', fetchErr);
+        return res.status(500).json({
+          error: `Falha na conexão com Supabase (${fetchErr.message || 'fetch failed'}). Verifique se o projeto no Supabase está ativo (não pausado) e se SUPABASE_URL / SUPABASE_SERVICE_KEY na Vercel estão corretas.`,
+        });
       }
-
-      return res.status(201).json(formatPropertyFromDb(data));
     }
 
     // PUT /api/admin/properties/:id
@@ -342,36 +351,43 @@ async function processBase64ImagesToStorage(images: string[], supabaseClient: an
       const property = req.body || {};
       const processedImages = property.images ? await processBase64ImagesToStorage(property.images, supabase) : undefined;
 
-      const { data, error } = await supabase
-        .from('properties')
-        .update({
-          title: property.title,
-          description: property.description,
-          type: property.type,
-          operation: property.operation,
-          status: property.status,
-          price: property.price,
-          city: property.location?.city,
-          neighborhood: property.location?.neighborhood,
-          address: property.location?.address,
-          bedrooms: property.details?.bedrooms,
-          bathrooms: property.details?.bathrooms,
-          garages: property.details?.garages,
-          area: property.details?.area,
-          features: property.details?.features,
-          images: processedImages,
-          featured: property.featured,
-        })
-        .eq('id', id)
-        .select()
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('properties')
+          .update({
+            title: property.title,
+            description: property.description,
+            type: property.type,
+            operation: property.operation,
+            status: property.status,
+            price: property.price,
+            city: property.location?.city,
+            neighborhood: property.location?.neighborhood,
+            address: property.location?.address,
+            bedrooms: property.details?.bedrooms,
+            bathrooms: property.details?.bathrooms,
+            garages: property.details?.garages,
+            area: property.details?.area,
+            features: property.details?.features,
+            images: processedImages,
+            featured: property.featured,
+          })
+          .eq('id', id)
+          .select()
+          .single();
 
-      if (error) {
-        console.error('Supabase error updating property:', error);
-        return res.status(500).json({ error: `Erro no Supabase: ${error.message}` });
+        if (error) {
+          console.error('Supabase error updating property:', error);
+          return res.status(500).json({ error: `Erro no Supabase: ${error.message}` });
+        }
+
+        return res.status(200).json(formatPropertyFromDb(data));
+      } catch (fetchErr: any) {
+        console.error('Network/fetch error updating Supabase:', fetchErr);
+        return res.status(500).json({
+          error: `Falha na conexão com Supabase (${fetchErr.message || 'fetch failed'}). Verifique se o projeto no Supabase está ativo.`,
+        });
       }
-
-      return res.status(200).json(formatPropertyFromDb(data));
     }
 
     // DELETE /api/admin/properties/:id
