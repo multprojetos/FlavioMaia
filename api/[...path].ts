@@ -1,6 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { mockProperties } from '../shared/mockData';
+
+let memoryProperties: any[] = [...mockProperties];
 
 // ---------------------------------------------------------------------------
 // Supabase Client Setup
@@ -169,7 +172,7 @@ export default async function handler(req: any, res: any) {
     // GET /api/properties  (list available)
     if (pathname === '/api/properties' && method === 'GET') {
       if (!isSupabaseConfigured()) {
-        return res.status(200).json([]);
+        return res.status(200).json(memoryProperties.filter((p) => p.status === 'available' || !p.status));
       }
 
       const { data, error } = await supabase
@@ -180,7 +183,7 @@ export default async function handler(req: any, res: any) {
 
       if (error) {
         console.error('Supabase error fetching properties:', error);
-        return res.status(200).json([]);
+        return res.status(200).json(memoryProperties.filter((p) => p.status === 'available' || !p.status));
       }
 
       const formatted = (data || []).map(formatPropertyFromDb);
@@ -193,7 +196,9 @@ export default async function handler(req: any, res: any) {
       const id = publicPropertyMatch[1];
 
       if (!isSupabaseConfigured()) {
-        return res.status(404).json({ error: 'Imóvel não encontrado' });
+        const found = memoryProperties.find((p) => String(p.id) === String(id));
+        if (!found) return res.status(404).json({ error: 'Imóvel não encontrado' });
+        return res.status(200).json(found);
       }
 
       const { data, error } = await supabase
@@ -204,6 +209,8 @@ export default async function handler(req: any, res: any) {
         .single();
 
       if (error || !data) {
+        const found = memoryProperties.find((p) => String(p.id) === String(id));
+        if (found) return res.status(200).json(found);
         return res.status(404).json({ error: 'Imóvel não encontrado' });
       }
 
@@ -220,7 +227,7 @@ export default async function handler(req: any, res: any) {
       if (!decoded) return res.status(401).json({ error: 'Token não fornecido' });
 
       if (!isSupabaseConfigured()) {
-        return res.status(200).json([]);
+        return res.status(200).json(memoryProperties);
       }
 
       const { data, error } = await supabase
@@ -230,7 +237,7 @@ export default async function handler(req: any, res: any) {
 
       if (error) {
         console.error('Supabase error fetching admin properties:', error);
-        return res.status(200).json([]);
+        return res.status(200).json(memoryProperties);
       }
 
       const formatted = (data || []).map(formatPropertyFromDb);
@@ -244,13 +251,24 @@ export default async function handler(req: any, res: any) {
       if (!decoded) return res.status(401).json({ error: 'Token não fornecido' });
 
       const id = adminPropertyGetMatch[1];
+      if (!isSupabaseConfigured()) {
+        const found = memoryProperties.find((p) => String(p.id) === String(id));
+        if (!found) return res.status(404).json({ error: 'Imóvel não encontrado' });
+        return res.status(200).json(found);
+      }
+
       const { data, error } = await supabase
         .from('properties')
         .select('*')
         .eq('id', id)
         .single();
 
-      if (error || !data) return res.status(404).json({ error: 'Imóvel não encontrado' });
+      if (error || !data) {
+        const found = memoryProperties.find((p) => String(p.id) === String(id));
+        if (found) return res.status(200).json(found);
+        return res.status(404).json({ error: 'Imóvel não encontrado' });
+      }
+
       return res.status(200).json(formatPropertyFromDb(data));
     }
 
@@ -308,11 +326,38 @@ async function processBase64ImagesToStorage(images: string[], supabaseClient: an
       const decoded = verifyToken(req.headers.authorization);
       if (!decoded) return res.status(401).json({ error: 'Token não fornecido' });
 
+      const property = body || {};
+
       if (!isSupabaseConfigured()) {
-        return res.status(501).json({ error: 'Supabase não configurado' });
+        const newProperty = {
+          id: String(Date.now()),
+          title: property.title || 'Novo Imóvel',
+          description: property.description || '',
+          type: property.type || 'apartment',
+          operation: property.operation || 'rent',
+          status: property.status || 'available',
+          price: Number(property.price || 0),
+          location: {
+            city: property.location?.city || 'Carmo',
+            neighborhood: property.location?.neighborhood || '',
+            address: property.location?.address || '',
+          },
+          details: {
+            bedrooms: Number(property.details?.bedrooms || 0),
+            bathrooms: Number(property.details?.bathrooms || 0),
+            garages: Number(property.details?.garages || 0),
+            area: Number(property.details?.area || 0),
+            features: property.details?.features || [],
+          },
+          images: property.images || [],
+          featured: Boolean(property.featured),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        memoryProperties.unshift(newProperty);
+        return res.status(201).json(newProperty);
       }
 
-      const property = req.body || {};
       const processedImages = await processBase64ImagesToStorage(property.images || [], supabase);
 
       try {
@@ -363,12 +408,21 @@ async function processBase64ImagesToStorage(images: string[], supabaseClient: an
       const decoded = verifyToken(req.headers.authorization);
       if (!decoded) return res.status(401).json({ error: 'Token não fornecido' });
 
+      const id = adminPropertyUpdateMatch[1];
+      const property = body || {};
+
       if (!isSupabaseConfigured()) {
-        return res.status(501).json({ error: 'Supabase não configurado' });
+        const index = memoryProperties.findIndex((p) => String(p.id) === String(id));
+        if (index === -1) return res.status(404).json({ error: 'Imóvel não encontrado' });
+
+        memoryProperties[index] = {
+          ...memoryProperties[index],
+          ...property,
+          updatedAt: new Date().toISOString(),
+        };
+        return res.status(200).json(memoryProperties[index]);
       }
 
-      const id = adminPropertyUpdateMatch[1];
-      const property = req.body || {};
       const processedImages = property.images ? await processBase64ImagesToStorage(property.images, supabase) : undefined;
 
       try {
