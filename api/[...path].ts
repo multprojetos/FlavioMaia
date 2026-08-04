@@ -101,8 +101,15 @@ export default async function handler(req: any, res: any) {
     return res.status(200).end();
   }
 
-  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
-  const pathname = url.pathname;
+  let rawPath = req.url ? req.url.split('?')[0] : '/';
+  if (req.query?.path) {
+    const p = Array.isArray(req.query.path) ? req.query.path.join('/') : req.query.path;
+    rawPath = `/api/${p}`;
+  } else if (rawPath.includes('[...path]')) {
+    const urlObj = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+    rawPath = urlObj.pathname;
+  }
+  const pathname = rawPath.replace(/\/+$/, '') || '/';
   const method = req.method || 'GET';
 
   let body = req.body;
