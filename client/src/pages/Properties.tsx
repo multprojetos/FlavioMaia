@@ -24,11 +24,17 @@ export default function Properties() {
     return properties.filter((property) => {
       if (filters.type && property.type !== filters.type) return false;
       if (filters.operation && property.operation !== filters.operation) return false;
-      if (filters.city && property.location?.city !== filters.city) return false;
-      if (filters.minPrice && property.price < filters.minPrice) return false;
-      if (filters.maxPrice && property.price > filters.maxPrice) return false;
-      if (filters.minBedrooms && property.details?.bedrooms < filters.minBedrooms) return false;
-      if (filters.minArea && property.details?.area < filters.minArea) return false;
+      if (
+        filters.city &&
+        property.location?.city &&
+        !property.location.city.toLowerCase().includes(filters.city.toLowerCase())
+      ) {
+        return false;
+      }
+      if (filters.minPrice && Number(property.price) < Number(filters.minPrice)) return false;
+      if (filters.maxPrice && Number(property.price) > Number(filters.maxPrice)) return false;
+      if (filters.minBedrooms && Number(property.details?.bedrooms || 0) < Number(filters.minBedrooms)) return false;
+      if (filters.minArea && Number(property.details?.area || 0) < Number(filters.minArea)) return false;
       return true;
     });
   }, [filters, properties]);
@@ -246,7 +252,11 @@ export default function Properties() {
             </div>
 
             {/* Properties Grid */}
-            {filteredProperties.length > 0 ? (
+            {loading ? (
+              <div className="bg-card rounded-lg p-12 text-center text-muted-foreground">
+                Carregando imóveis...
+              </div>
+            ) : filteredProperties.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredProperties.map((property) => (
                   <PropertyCard
@@ -258,14 +268,16 @@ export default function Properties() {
               </div>
             ) : (
               <div className="bg-card rounded-lg p-12 text-center">
-                <p className="text-muted-foreground text-lg">Nenhum imóvel encontrado com esses filtros.</p>
-                <Button
-                  onClick={() => setFilters({})}
-                  variant="outline"
-                  className="mt-4"
-                >
-                  Limpar Filtros
-                </Button>
+                <p className="text-muted-foreground text-lg">Nenhum imóvel cadastrado ou encontrado com esses filtros.</p>
+                {Object.keys(filters).length > 0 && (
+                  <Button
+                    onClick={() => setFilters({})}
+                    variant="outline"
+                    className="mt-4"
+                  >
+                    Limpar Filtros
+                  </Button>
+                )}
               </div>
             )}
           </div>

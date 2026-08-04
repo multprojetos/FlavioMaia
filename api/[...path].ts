@@ -213,18 +213,17 @@ export default async function handler(req: any, res: any) {
     // GET /api/properties  (list available)
     if (pathname === '/api/properties' && method === 'GET') {
       if (!isSupabaseConfigured()) {
-        return res.status(200).json(memoryProperties.filter((p) => p.status === 'available' || !p.status));
+        return res.status(200).json(memoryProperties);
       }
 
       const { data, error } = await supabase
         .from('properties')
         .select('*')
-        .eq('status', 'available')
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Supabase error fetching properties:', error);
-        return res.status(200).json(memoryProperties.filter((p) => p.status === 'available' || !p.status));
+        return res.status(200).json(memoryProperties);
       }
 
       const formatted = (data || []).map(formatPropertyFromDb);
