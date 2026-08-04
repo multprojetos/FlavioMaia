@@ -1,16 +1,33 @@
 import { useParams, useLocation } from 'wouter';
-import { mockProperties } from '../../../shared/mockData';
+import { Property } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import ImageGallery from '@/components/ImageGallery';
-import { MapPin, Bed, Bath, Maximize2, Phone, MessageCircle, Share2, Heart, Car } from 'lucide-react';
-import { useState } from 'react';
+import { MapPin, Bed, Bath, Maximize2, Phone, MessageCircle, Share2, Heart, Car, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const [isFavorite, setIsFavorite] = useState(false);
+  const [property, setProperty] = useState<Property | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const property = mockProperties.find((p) => p.id === id);
+  useEffect(() => {
+    if (!id) return;
+    fetch(`/api/properties/${id}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setProperty(data))
+      .catch(() => setProperty(null))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!property) {
     return (
@@ -164,11 +181,11 @@ export default function PropertyDetail() {
               </div>
 
               {/* Features */}
-              {property.details.features.length > 0 && (
+              {property.details?.features && property.details.features.length > 0 && (
                 <div className="mb-8">
                   <h2 className="font-display text-2xl font-bold text-foreground mb-4">Características</h2>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {property.details.features.map((feature, index) => (
+                    {property.details.features.map((feature: string, index: number) => (
                       <div key={index} className="flex items-center gap-2 bg-muted p-3 rounded-lg">
                         <div className="w-2 h-2 bg-accent rounded-full" />
                         <span className="text-foreground text-sm">{feature}</span>

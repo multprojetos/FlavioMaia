@@ -1,6 +1,5 @@
-import { useState, useMemo } from 'react';
-import { mockProperties } from '../../../shared/mockData';
-import { SearchFilters } from '@shared/types';
+import { useState, useMemo, useEffect } from 'react';
+import { Property, SearchFilters } from '@shared/types';
 import PropertyCard from '@/components/PropertyCard';
 import { useLocation } from 'wouter';
 import { Filter, X } from 'lucide-react';
@@ -10,19 +9,29 @@ export default function Properties() {
   const [, setLocation] = useLocation();
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({});
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/properties')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setProperties(data || []))
+      .catch(() => setProperties([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filteredProperties = useMemo(() => {
-    return mockProperties.filter((property) => {
+    return properties.filter((property) => {
       if (filters.type && property.type !== filters.type) return false;
       if (filters.operation && property.operation !== filters.operation) return false;
-      if (filters.city && property.location.city !== filters.city) return false;
+      if (filters.city && property.location?.city !== filters.city) return false;
       if (filters.minPrice && property.price < filters.minPrice) return false;
       if (filters.maxPrice && property.price > filters.maxPrice) return false;
-      if (filters.minBedrooms && property.details.bedrooms < filters.minBedrooms) return false;
-      if (filters.minArea && property.details.area < filters.minArea) return false;
+      if (filters.minBedrooms && property.details?.bedrooms < filters.minBedrooms) return false;
+      if (filters.minArea && property.details?.area < filters.minArea) return false;
       return true;
     });
-  }, [filters]);
+  }, [filters, properties]);
 
   const handleFilterChange = (newFilters: SearchFilters) => {
     setFilters(newFilters);
@@ -32,7 +41,7 @@ export default function Properties() {
     setLocation(`/imovel/${id}`);
   };
 
-  const cities = Array.from(new Set(mockProperties.map((p) => p.location.city)));
+  const cities = Array.from(new Set(properties.map((p) => p.location?.city).filter(Boolean)));
   const types = [
     { value: 'apartment', label: 'Apartamento' },
     { value: 'house', label: 'Casa' },

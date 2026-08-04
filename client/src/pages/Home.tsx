@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { mockProperties, mockTestimonials } from '../../../shared/mockData';
+import { Property } from '@shared/types';
+import { mockTestimonials } from '../../../shared/mockData';
 import PropertyCard from '@/components/PropertyCard';
 import { Button } from '@/components/ui/button';
 import { Star, CheckCircle, Users, TrendingUp, ArrowRight } from 'lucide-react';
@@ -9,6 +10,18 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const [searchType, setSearchType] = useState<'rent' | 'sale'>('sale');
   const [searchCity, setSearchCity] = useState('');
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/properties')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        setProperties(data || []);
+      })
+      .catch(() => setProperties([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleSearch = () => {
     setLocation('/imoveis');
@@ -18,8 +31,8 @@ export default function Home() {
     setLocation(`/imovel/${id}`);
   };
 
-  const featuredProperties = mockProperties.filter((p) => p.featured).slice(0, 3);
-  const cities = Array.from(new Set(mockProperties.map((p) => p.location.city)));
+  const featuredProperties = properties.filter((p) => p.featured).slice(0, 6);
+  const cities = Array.from(new Set(properties.map((p) => p.location?.city).filter(Boolean)));
 
   return (
     <div className="min-h-screen bg-background">
@@ -112,15 +125,24 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            {featuredProperties.map((property) => (
-              <PropertyCard
-                key={property.id}
-                property={property}
-                onViewDetails={handleViewDetails}
-              />
-            ))}
-          </div>
+          {loading ? (
+            <div className="text-center py-12 text-muted-foreground">Carregando imóveis em destaque...</div>
+          ) : featuredProperties.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {featuredProperties.map((property) => (
+                <PropertyCard
+                  key={property.id}
+                  property={property}
+                  onViewDetails={handleViewDetails}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-card rounded-lg mb-8 p-6">
+              <p className="text-muted-foreground">Nenhum imóvel marcado em destaque no momento.</p>
+              <p className="text-sm text-muted-foreground mt-1">Os imóveis marcados como "Destaque" no painel administrativo aparecerão aqui.</p>
+            </div>
+          )}
 
           <div className="text-center">
             <Button
