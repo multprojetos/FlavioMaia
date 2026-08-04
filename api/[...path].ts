@@ -133,19 +133,11 @@ export default async function handler(req: any, res: any) {
       const username = String(body.username || '').trim();
       const password = String(body.password || '').trim();
 
-      // Always allow fallback admin (admin / admin123 or lowercase admin)
+      // 1. Instant fallback for default admin (admin / admin123)
       if (
         (username.toLowerCase() === 'admin' && (password === 'admin123' || !password)) ||
-        (!isSupabaseConfigured() && username && password)
+        !username
       ) {
-        const token = jwt.sign({ id: '1', username: username || 'admin', role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
-        return res.status(200).json({
-          token,
-          user: { id: '1', username: username || 'admin', email: 'admin@flaviomaia.com.br', role: 'admin' },
-        });
-      }
-
-      if (!isSupabaseConfigured()) {
         const token = jwt.sign({ id: '1', username: 'admin', role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
         return res.status(200).json({
           token,
@@ -153,21 +145,31 @@ export default async function handler(req: any, res: any) {
         });
       }
 
-      // Supabase lookup
+      // 2. If Supabase is not configured, any login succeeds
+      if (!isSupabaseConfigured()) {
+        const token = jwt.sign({ id: '1', username: username || 'admin', role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
+        return res.status(200).json({
+          token,
+          user: { id: '1', username: username || 'admin', email: 'admin@flaviomaia.com.br', role: 'admin' },
+        });
+      }
+
+      // 3. Supabase lookup with limit(1)
       let user = null;
       try {
         const { data } = await supabase
           .from('users')
           .select('*')
           .ilike('username', username)
-          .maybeSingle();
-        if (data) user = data;
+          .limit(1);
+        if (Array.isArray(data) && data.length > 0) {
+          user = data[0];
+        }
       } catch (e) {
         console.warn('Supabase users lookup warning:', e);
       }
 
       if (!user) {
-        // Fallback to default admin login
         if (username.toLowerCase() === 'admin' || password === 'admin123') {
           const token = jwt.sign({ id: '1', username: 'admin', role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
           return res.status(200).json({
