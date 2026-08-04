@@ -27,7 +27,8 @@ export default function AdminLogin() {
       });
 
       if (!response.ok) {
-        throw new Error('Usuário ou senha inválidos');
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Usuário ou senha inválidos');
       }
 
       const data = await response.json();
