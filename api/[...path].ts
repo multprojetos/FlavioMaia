@@ -210,20 +210,21 @@ export default async function handler(req: any, res: any) {
     // PUBLIC PROPERTIES
     // =========================================================================
 
-    // GET /api/properties  (list available)
+    // GET /api/properties  (list available for public visitors)
     if (pathname === '/api/properties' && method === 'GET') {
       if (!isSupabaseConfigured()) {
-        return res.status(200).json(memoryProperties);
+        return res.status(200).json(memoryProperties.filter((p) => p.status === 'available' || !p.status));
       }
 
       const { data, error } = await supabase
         .from('properties')
         .select('*')
+        .eq('status', 'available')
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Supabase error fetching properties:', error);
-        return res.status(200).json(memoryProperties);
+        return res.status(200).json(memoryProperties.filter((p) => p.status === 'available' || !p.status));
       }
 
       const formatted = (data || []).map(formatPropertyFromDb);
@@ -510,11 +511,12 @@ async function processBase64ImagesToStorage(images: string[], supabaseClient: an
       const decoded = verifyToken(req.headers.authorization);
       if (!decoded) return res.status(401).json({ error: 'Token não fornecido' });
 
+      const id = adminPropertyDeleteMatch[1];
       if (!isSupabaseConfigured()) {
-        return res.status(501).json({ error: 'Supabase não configurado' });
+        memoryProperties = memoryProperties.filter((p) => String(p.id) !== String(id));
+        return res.status(200).json({ success: true });
       }
 
-      const id = adminPropertyDeleteMatch[1];
       const { error } = await supabase
         .from('properties')
         .delete()
@@ -530,12 +532,18 @@ async function processBase64ImagesToStorage(images: string[], supabaseClient: an
       const decoded = verifyToken(req.headers.authorization);
       if (!decoded) return res.status(401).json({ error: 'Token não fornecido' });
 
-      if (!isSupabaseConfigured()) {
-        return res.status(501).json({ error: 'Supabase não configurado' });
-      }
-
       const id = adminStatusMatch[1];
       const { status } = req.body || {};
+
+      if (!isSupabaseConfigured()) {
+        const index = memoryProperties.findIndex((p) => String(p.id) === String(id));
+        if (index !== -1) {
+          memoryProperties[index].status = status;
+          memoryProperties[index].updatedAt = new Date().toISOString();
+          return res.status(200).json(memoryProperties[index]);
+        }
+        return res.status(404).json({ error: 'Imóvel não encontrado' });
+      }
 
       const { data, error } = await supabase
         .from('properties')
